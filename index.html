@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Chasse aux souvenirs de Thomas - Bayeux</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+    <style>
+        :root { --primary: #B76B24; --secondary: #145755; --bg: #fff9f4; }
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: system-ui, sans-serif; background: radial-gradient(circle at top left, #ffe5c7, #fff9f4 40%); color: #2b2b2b; }
+        .app { max-width: 960px; margin: 0 auto; padding: 16px; }
+        header { text-align: center; padding: 16px 8px 8px; }
+        .title { font-size: 1.9rem; margin-bottom: 4px; color: #145755; font-weight: 700; }
+        .subtitle { font-size: 0.95rem; color: #555; }
+        .badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(183,107,36,0.12); border-radius: 999px; padding: 4px 12px; margin-top: 10px; font-size: 0.85rem; color: #B76B24; }
+        .badge-dot { width: 8px; height: 8px; border-radius: 50%; background: #B76B24; }
+        .card { background: rgba(255,255,255,0.9); border-radius: 16px; padding: 16px; box-shadow: 0 18px 40px rgba(0,0,0,0.05); margin-top: 12px; }
+        .intro { margin-bottom: 16px; font-size: 0.96rem; line-height: 1.5; }
+        .highlight { color: #B76B24; font-weight: 600; }
+        .progress-container { margin: 8px 0 14px; }
+        .progress-text { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 6px; }
+        .progress-label { font-weight: 600; color: #145755; }
+        .progress-bar-bg { width: 100%; height: 9px; border-radius: 999px; background: rgba(20,87,85,0.12); overflow: hidden; }
+        .progress-bar-fill { height: 100%; width: 0%; border-radius: 999px; background: linear-gradient(90deg, #B76B24, #f0a03f); transition: width 0.4s ease-out; }
+        #map { width: 100%; height: 300px; border-radius: 14px; margin-bottom: 12px; }
+        .steps { display: flex; flex-direction: column; gap: 12px; margin-bottom: 14px; }
+        .step-card { border-radius: 14px; padding: 14px; border: 1px solid rgba(20,87,85,0.12); background: #fff; }
+        .step-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+        .step-title { font-weight: 600; font-size: 1rem; color: #145755; }
+        .step-status { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .step-status.locked { color: #999; }
+        .step-status.active { color: #B76B24; }
+        .step-status.done { color: #145755; }
+        .step-clue { font-size: 0.9rem; margin-bottom: 8px; }
+        .step-desc { font-size: 0.88rem; margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(20,87,85,0.16); color: #444; }
+        .step-desc strong { color: #B76B24; }
+        .step-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+        .step-note { font-size: 0.78rem; color: #777; }
+        button { border: none; border-radius: 999px; padding: 9px 18px; font-size: 0.92rem; font-weight: 600; cursor: pointer; transition: transform 0.1s; }
+        .btn-primary { background: linear-gradient(135deg, #B76B24, #f0a03f); color: #fff; box-shadow: 0 8px 18px rgba(183,107,36,0.35); }
+        .btn-primary:disabled { opacity: 0.5; cursor: default; box-shadow: none; }
+        .btn-ghost { background: rgba(20,87,85,0.08); color: #145755; margin-top: 10px; }
+        .footer { text-align: center; font-size: 0.8rem; color: #888; margin-top: 10px; }
+        .celebration { display: none; text-align: center; padding: 16px 10px; }
+        .celebration-title { font-size: 1.5rem; font-weight: 700; color: #B76B24; margin-bottom: 8px; }
+        .celebration-sub { font-size: 0.95rem; margin-bottom: 12px; }
+        .pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 999px; background: rgba(20,87,85,0.08); color: #145755; font-size: 0.82rem; }
+    </style>
+</head>
+<body>
+<div class="app">
+    <header>
+        <div class="title">🎂 Chasse aux souvenirs de Thomas</div>
+        <div class="subtitle">Pars sur les traces de Thomas et retrouve les lieux qui ont forgé son histoire à Bayeux.</div>
+        <div class="badge"><span class="badge-dot"></span><span>Anniversaire de Thomas · Mode collaboratif</span></div>
+    </header>
+    <main class="card">
+        <section class="intro">
+            <p>En équipe, explorez <span class="highlight">Bayeux</span> et découvrez les lieux qui ont marqué la vie de Thomas. Chaque étape se débloque une fois que vous êtes tous arrivés sur place : cliquez sur <span class="highlight">"J'y suis !"</span>, validez, et passez au souvenir suivant.</p>
+        </section>
+        <section class="progress-container">
+            <div class="progress-text">
+                <span class="progress-label">Progression</span>
+                <span id="progress-label">Étape 1/5</span>
+            </div>
+            <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-bar"></div></div>
+        </section>
+        <div id="map"></div>
+        <section class="steps" id="steps-container"></section>
+        <section class="celebration" id="celebration">
+            <div class="celebration-title">🎉 Bravo ! Vous avez retracé la vie de Thomas à Bayeux !</div>
+            <p class="celebration-sub">Chaque marche, chaque salle, chaque roue cachée raconte un chapitre de son histoire. Merci d'avoir joué le jeu et partagé ces souvenirs !</p>
+            <div class="pill">💬 Invite Thomas à raconter une anecdote sur son lieu préféré...</div>
+            <br>
+            <button class="btn-ghost" id="replay-confetti">🎊 Relancer les confettis</button>
+        </section>
+        <div class="footer">💡 Pro-tip : prenez une photo de groupe à chaque étape pour créer l'album des souvenirs de Thomas.</div>
+    </main>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+<script>
+const STEPS = [
+    { id:1, name:"Le Collège Alain Chartier", coords:[49.2748,-0.7056], clue:"C'est ici que Thomas a appris, grandi et forgé ses premières amitiés. Retrouve ce collège du centre de Bayeux.", description:"Le Collège Alain Chartier — là où tout a commencé pour Thomas, entre les cours et les fous rires." },
+    { id:2, name:"La Marche d'Eurodif (aujourd'hui Bouchara)", coords:[49.2758,-0.7031], clue:"Une petite marche de vitrine, un grand souvenir. Thomas y squattait des heures. Retrouve ce magasin du centre-ville.", description:"L'ancienne vitrine d'Eurodif, aujourd'hui Bouchara — le QG improvisé de Thomas et ses amis." },
+    { id:3, name:"La Halle aux Grains", coords:[49.2761,-0.7038], clue:"C'est dans cette salle mythique que Thomas a organisé son premier concert. Retrouve-la !", description:"La Halle aux Grains — scène du tout premier concert de Thomas, une soirée inoubliable." },
+    { id:4, name:"Espace Musical - 4 Rue Maréchal Foch", coords:[49.2755,-0.7042], clue:"C'est ici que Thomas a craqué pour son tout premier synthétiseur. Retrouve ce magasin de musique.", description:"Espace Musical, 4 rue Maréchal Foch — là où Thomas a acheté son premier synthé et où tout a basculé musicalement." },
+    { id:5, name:"La Roue derrière l'Hôpital", coords:[49.2801,-0.7089], clue:"Le lieu préféré de Thomas à Bayeux. Une roue cachée derrière l'hôpital, un endroit plein de sérénité.", description:"La Roue derrière l'Hôpital — le lieu de cœur de Thomas, son refuge secret à Bayeux." }
+];
+const STORAGE_KEY = "thomas_bayeux_v1";
+let currentStep = 0;
+let map, markers = [];
+
+function loadProgress() {
+    try { const d = JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}"); return typeof d.step==="number" ? Math.min(Math.max(d.step,0),STEPS.length) : 0; } catch(e){ return 0; }
+}
+function saveProgress() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify({step:currentStep})); } catch(e){}
+}
+function updateProgressUI() {
+    const human = Math.min(currentStep+1, STEPS.length);
+    document.getElementById("progress-label").textContent = "Étape "+human+"/"+STEPS.length;
+    document.getElementById("progress-bar").style.width = (currentStep/STEPS.length*100)+"%";
+}
+function renderSteps() {
+    const c = document.getElementById("steps-container");
+    c.innerHTML = "";
+    STEPS.forEach((step,i) => {
+        const done = i < currentStep, active = i === currentStep, locked = i > currentStep;
+        const card = document.createElement("article");
+        card.className = "step-card";
+        const statusText = done?"Validée ✅":active?"En cours 🔍":"Verrouillée 🔒";
+        const statusClass = done?"done":active?"active":"locked";
+        const noteText = locked?"Débloquez les étapes dans l'ordre, ensemble.":active?"Quand tout le monde est sur place, validez l'étape.":"Lieu validé ! Profitez du souvenir.";
+        card.innerHTML = `
+            <div class="step-header">
+                <div class="step-title">Étape ${step.id} — ${step.name}</div>
+                <div class="step-status ${statusClass}">${statusText}</div>
+            </div>
+            <p class="step-clue">${step.clue}</p>
+            ${(done||active)?`<div class="step-desc"><strong>Souvenir :</strong> ${step.description}</div>`:""}
+            <div class="step-footer">
+                <span class="step-note">${noteText}</span>
+                <button class="btn-primary" ${!active?"disabled":""} data-index="${i}">J'y suis !</button>
+            </div>`;
+        c.appendChild(card);
+    });
+    c.querySelectorAll("button[data-index]").forEach(btn => {
+        btn.addEventListener("click", () => validateStep(parseInt(btn.dataset.index)));
+    });
+}
+function updateMarkers() {
+    markers.forEach((m,i) => m.setOpacity(i<=currentStep?1:0));
+}
+function initMap() {
+    map = L.map("map",{center:[49.2764,-0.7024],zoom:15});
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(map);
+    markers = STEPS.map(s => {
+        const m = L.marker(s.coords,{opacity:0}).addTo(map);
+        m.bindPopup("<strong>"+s.name+"</strong><br>"+s.description);
+        return m;
+    });
+    updateMarkers();
+}
+function launchConfetti() {
+    const end = Date.now()+2500;
+    const iv = setInterval(()=>{
+        if(Date.now()>end) return clearInterval(iv);
+        confetti({particleCount:40,spread:360,startVelocity:25,origin:{x:Math.random()*0.3+0.1,y:Math.random()-0.2}});
+        confetti({particleCount:40,spread:360,startVelocity:25,origin:{x:Math.random()*0.3+0.6,y:Math.random()-0.2}});
+    },250);
+}
+function validateStep(i) {
+    if(i!==currentStep) return;
+    if(currentStep < STEPS.length-1) {
+        currentStep++;
+        saveProgress(); updateProgressUI(); renderSteps(); updateMarkers();
+        map.setView(STEPS[currentStep].coords,16,{animate:true});
+        markers[currentStep].openPopup();
+    } else {
+        currentStep = STEPS.length;
+        saveProgress(); updateProgressUI(); renderSteps(); updateMarkers();
+        document.getElementById("celebration").style.display="block";
+        launchConfetti();
+    }
+}
+document.addEventListener("DOMContentLoaded",()=>{
+    currentStep = loadProgress();
+    initMap(); updateProgressUI(); renderSteps();
+    if(currentStep>=STEPS.length) document.getElementById("celebration").style.display="block";
+    document.getElementById("replay-confetti").addEventListener("click",launchConfetti);
+});
+</script>
+</body>
+</html>
