@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8" />
+    <title>L'Anniversaire de Thomas & Anne-Sophie</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        :root {
+            --primary: #B76B24;
+            --secondary: #145755;
+            --bg-light: #f8f5f1;
+            --text-main: #222;
+            --border-soft: #ddd;
+            --success: #2e7d32;
+            --locked: #999;
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: 'Lato', sans-serif; background: var(--bg-light); color: var(--text-main); }
+        h1, h2, h3 { font-family: 'Playfair Display', serif; margin: 0; }
+        .app { min-height: 100vh; display: flex; flex-direction: column; }
+        header { background: linear-gradient(135deg, var(--primary), var(--secondary)); color: #fff; padding: 16px 20px; text-align: center; }
+        header h1 { font-size: 1.6rem; letter-spacing: 0.03em; }
+        header small { display: block; margin-top: 4px; font-size: 0.9rem; opacity: 0.85; }
+        main { flex: 1; display: flex; flex-direction: row; padding: 16px; gap: 16px; }
+        .left-panel, .right-panel { background: #fff; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); padding: 16px; }
+        .left-panel { flex: 1.1; display: flex; flex-direction: column; }
+        .right-panel { flex: 1; display: flex; flex-direction: column; }
+        @media (max-width: 900px) { main { flex-direction: column; } }
+        .welcome-screen { text-align: center; padding: 16px; }
+        .welcome-title { font-size: 1.8rem; margin-bottom: 8px; }
+        .welcome-subtitle { font-size: 1rem; margin-bottom: 16px; }
+        .highlight-box { display: inline-block; text-align: left; margin: 12px auto 24px; padding: 12px 16px; border-radius: 12px; background: rgba(183,107,36,0.06); border: 1px solid rgba(183,107,36,0.3); max-width: 480px; font-size: 0.95rem; }
+        .btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 22px; border-radius: 999px; border: none; background: var(--secondary); color: #fff; font-size: 1rem; cursor: pointer; font-weight: 600; transition: background 0.18s ease, transform 0.08s ease; box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
+        .btn-primary:hover { background: #0f3f3d; transform: translateY(-1px); }
+        .steps-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+        .steps-header h2 { font-size: 1.3rem; }
+        .progress-text { font-size: 0.9rem; color: #555; }
+        .steps-list { display: flex; flex-direction: column; gap: 10px; }
+        .step-card { border-radius: 10px; border: 1px solid var(--border-soft); background: #faf9f7; padding: 10px 12px; transition: border-color 0.18s ease, box-shadow 0.18s ease; }
+        .step-card.active { border-color: var(--primary); box-shadow: 0 2px 8px rgba(183,107,36,0.2); background: #fffaf3; }
+        .step-card.completed { border-color: var(--success); background: #f6fff6; }
+        .step-card.locked { background: #f3f3f3; color: var(--locked); }
+        .step-header { display: flex; align-items: center; justify-content: space-between; }
+        .step-title-group { display: flex; align-items: baseline; gap: 8px; }
+        .step-number { font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--secondary); }
+        .step-title { font-size: 1.05rem; }
+        .step-status-icon { font-size: 1.2rem; }
+        .step-body { margin-top: 8px; font-size: 0.95rem; line-height: 1.5; }
+        .step-actions { margin-top: 10px; display: flex; justify-content: flex-end; }
+        .btn-validate { padding: 6px 14px; border-radius: 999px; border: none; background: var(--primary); color: #fff; cursor: pointer; font-size: 0.9rem; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; transition: background 0.18s ease, transform 0.08s ease; box-shadow: 0 2px 5px rgba(0,0,0,0.15); }
+        .btn-validate:hover { background: #95551b; transform: translateY(-1px); }
+        .btn-reset { margin-top: 12px; align-self: flex-end; font-size: 0.8rem; padding: 4px 10px; border-radius: 999px; border: 1px dashed #ccc; background: #fff; color: #777; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+        .btn-reset:hover { background: #f5f5f5; }
+        #map { flex: 1; min-height: 300px; border-radius: 10px; overflow: hidden; border: 1px solid var(--border-soft); }
+        .map-title { font-size: 1.2rem; margin-bottom: 8px; }
+        .map-subtitle { font-size: 0.85rem; color: #555; margin-bottom: 8px; }
+        .completion-screen { text-align: center; padding: 16px; display: none; }
+        .completion-title { font-size: 1.6rem; margin-bottom: 10px; }
+        .completion-message { font-size: 1rem; margin-bottom: 16px; }
+        #confetti-canvas { position: fixed; pointer-events: none; inset: 0; width: 100%; height: 100%; z-index: 9999; }
+    </style>
+</head>
+<body>
+<div class="app">
+    <header>
+        <h1>L'Anniversaire de Thomas & Anne-Sophie</h1>
+        <small>Chasse aux souvenirs à Bayeux 🎂</small>
+    </header>
+    <main>
+        <section class="left-panel">
+            <div id="welcome-screen" class="welcome-screen">
+                <h2 class="welcome-title">L'Anniversaire de Thomas & Anne-Sophie 🎂</h2>
+                <p class="welcome-subtitle">Pars sur les traces de Thomas et retrouve les lieux qui ont forgé son histoire à Bayeux.</p>
+                <div class="highlight-box">
+                    <strong>📸 À chaque lieu découvert, une photo de groupe est obligatoire devant le lieu !</strong><br/>
+                    <span style="font-size:0.9rem;">Gardez un souvenir de chaque étape. Sans photo, l'étape ne compte pas vraiment...</span>
+                </div>
+                <button id="start-btn" class="btn-primary">Commencer l'aventure ▶</button>
+            </div>
+            <div id="steps-container" style="display:none;">
+                <div class="steps-header">
+                    <h2>Les étapes</h2>
+                    <div class="progress-text" id="progress-text">0 / 5 complétées</div>
+                </div>
+                <div class="steps-list" id="steps-list"></div>
+                <button id="reset-btn" class="btn-reset">🔄 Réinitialiser la chasse</button>
+                <div id="completion-screen" class="completion-screen">
+                    <h2 class="completion-title">🎉 Bravo ! Vous avez retrouvé tous les lieux de la vie de Thomas & Anne-Sophie à Bayeux !</h2>
+                    <p class="completion-message">Merci d'avoir participé à cette aventure. Maintenant, direction la fête ! 🥳</p>
+                    <p style="font-size:0.9rem;color:#555;">Vous pouvez refaire la chasse en la réinitialisant.</p>
+                </div>
+            </div>
+        </section>
+        <section class="right-panel">
+            <h2 class="map-title">Carte de l'aventure</h2>
+            <p class="map-subtitle">Les lieux se débloquent au fur et à mesure. Zoomez et explorez Bayeux !</p>
+            <div id="map"></div>
+        </section>
+    </main>
+</div>
+<canvas id="confetti-canvas"></canvas>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+    const STEPS = [
+        {
+            id: 1,
+            title: "Le Collège de Thomas",
+            clue: "Thomas a passé ses années collège dans un établissement scolaire de Bayeux. Retrouve son collège ! Indice : il porte le nom d'un grand humaniste normand du XVe siècle, auteur de la célèbre 'Belle Dame sans Mercy'.",
+            coords: [49.2748, -0.7089],
+            validateText: "Nous y sommes ! 📸"
+        },
+        {
+            id: 2,
+            title: "La Marche d'Eurodif",
+            clue: "Thomas et ses amis aimaient squatter une petite marche devant un grand magasin. Ce magasin n'existe plus sous son ancien nom, mais il est toujours là, grand et imposant, dans un quartier proche de la cathédrale. Cherche une vitrine en quart de rond arrondie, qui donne pile en face d'un bar et d'un magasin de vêtements pour hommes. Le magasin actuel est fermé... mais la marche, elle, est toujours là !",
+            coords: [49.2769, -0.7031],
+            validateText: "Nous y sommes ! 📸"
+        },
+        {
+            id: 3,
+            title: "La Halle aux Grains",
+            clue: "Thomas a organisé son premier concert dans une salle mythique de Bayeux. Remonte la rue principale jusqu'au bout... tout au bout, là où la ville semble s'arrêter. Tu reconnaîtras le lieu à ses grandes arches imposantes. Il n'y a plus rien après.",
+            coords: [49.2798, -0.7056],
+            validateText: "Nous y sommes ! 📸"
+        },
+        {
+            id: 4,
+            title: "Le Premier Synthétiseur",
+            clue: "Thomas avait la passion de la musique et du synthétiseur. Pour trouver son premier instrument, il a dû chercher... Trouve le magasin de musique qui se cache non loin de la Place aux Pommes. C'est là qu'il a trouvé son premier synthé !",
+            coords: [49.2757, -0.7045],
+            validateText: "Nous y sommes ! 📸"
+        },
+        {
+            id: 5,
+            title: "Le Lieu Préféré de Thomas",
+            clue: "Derrière l'hôpital de Bayeux se cache un endroit serein et magnifique, idéal pour se reposer et contempler. C'est le lieu préféré de Thomas à Bayeux. Sauras-tu le trouver ?",
+            coords: [49.2735, -0.7012],
+            validateText: "Nous y sommes ! 📸"
+        }
+    ];
+
+    const STORAGE_KEY = "anniv-thomas-anne-progress";
+    let state = { started: false, completedSteps: [] };
+    let map;
+    let markers = [];
+
+    function loadState() {
+        try {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (parsed && Array.isArray(parsed.completedSteps)) state.completedSteps = parsed.completedSteps;
+                if (parsed && typeof parsed.started === "boolean") state.started = parsed.started;
+            }
+        } catch(e) {}
+    }
+
+    function saveState() {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
+    }
+
+    function initMap() {
+        map = L.map('map').setView([49.2764, -0.7024], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap'
+        }).addTo(map);
+        STEPS.forEach(step => {
+            const marker = L.marker(step.coords);
+            marker.bindPopup('<strong>Étape ' + step.id + ' :</strong><br>' + step.title);
+            markers.push(marker);
+        });
+        refreshMarkers();
+    }
+
+    function refreshMarkers() {
+        markers.forEach(m => { try { map.removeLayer(m); } catch(_) {} });
+        for (let i = 0; i < state.completedSteps.length; i++) {
+            markers[i].addTo(map);
+        }
+    }
+
+    function launchConfetti() {
+        const canvas = document.getElementById('confetti-canvas');
+        if (!canvas || typeof confetti === 'undefined') return;
+        const myConfetti = confetti.create(canvas, { resize: true, useWorker: true });
+        const end = Date.now() + 3000;
+        (function frame() {
+            myConfetti({ particleCount: 4, angle: 60, spread: 55, origin: { x: 0 } });
+            myConfetti({ particleCount: 4, angle: 120, spread: 55, origin: { x: 1 } });
+            if (Date.now() < end) requestAnimationFrame(frame);
+        })();
+    }
+
+    function render() {
+        const welcome = document.getElementById('welcome-screen');
+        const stepsContainer = document.getElementById('steps-container');
+        const progressText = document.getElementById('progress-text');
+        const completionScreen = document.getElementById('completion-screen');
+        const stepsList = document.getElementById('steps-list');
+
+        progressText.textContent = state.completedSteps.length + ' / ' + STEPS.length + ' complétées';
+
+        if (!state.started) {
+            welcome.style.display = 'block';
+            stepsContainer.style.display = 'none';
+            return;
+        }
+
+        welcome.style.display = 'none';
+        stepsContainer.style.display = 'block';
+        stepsList.innerHTML = '';
+
+        let activeStepId = null;
+        for (const step of STEPS) {
+            if (!state.completedSteps.includes(step.id)) { activeStepId = step.id; break; }
+        }
+
+        STEPS.forEach(step => {
+            const isCompleted = state.completedSteps.includes(step.id);
+            const isActive = activeStepId === step.id;
+            const isLocked = !isCompleted && !isActive;
+
+            const card = document.createElement('div');
+            card.className = 'step-card' + (isCompleted ? ' completed' : '') + (isActive ? ' active' : '') + (isLocked ? ' locked' : '');
+
+            const header = document.createElement('div');
+            header.className = 'step-header';
+
+            const titleGroup = document.createElement('div');
+            titleGroup.className = 'step-title-group';
+
+            const num = document.createElement('div');
+            num.className = 'step-number';
+            num.textContent = 'Étape ' + step.id;
+
+            const title = document.createElement('div');
+            title.className = 'step-title';
+            title.textContent = step.title;
+
+            titleGroup.appendChild(num);
+            titleGroup.appendChild(title);
+
+            const statusIcon = document.createElement('div');
+            statusIcon.className = 'step-status-icon';
+            statusIcon.textContent = isCompleted ? '✅' : (isLocked ? '🔒' : '🧭');
+
+            header.appendChild(titleGroup);
+            header.appendChild(statusIcon);
+            card.appendChild(header);
+
+            if (isCompleted) {
+                const t = document.createElement('div');
+                t.className = 'step-body';
+                t.style.fontStyle = 'italic';
+                t.style.color = '#2e7d32';
+                t.textContent = 'Étape validée ! Bravo pour la photo de groupe. 📸';
+                card.appendChild(t);
+            } else if (isActive) {
+                const body = document.createElement('div');
+                body.className = 'step-body';
+                body.textContent = step.clue;
+                card.appendChild(body);
+
+                const actions = document.createElement('div');
+                actions.className = 'step-actions';
+                const btn = document.createElement('button');
+                btn.className = 'btn-validate';
+                btn.textContent = step.validateText;
+                btn.addEventListener('click', () => validateStep(step.id));
+                actions.appendChild(btn);
+                card.appendChild(actions);
+            } else {
+                const body = document.createElement('div');
+                body.className = 'step-body';
+                body.textContent = 'Cette étape est verrouillée. Complétez d'abord les étapes précédentes.';
+                card.appendChild(body);
+            }
+
+            stepsList.appendChild(card);
+        });
+
+        if (state.completedSteps.length === STEPS.length) {
+            completionScreen.style.display = 'block';
+        } else {
+            completionScreen.style.display = 'none';
+        }
+
+        refreshMarkers();
+    }
+
+    function validateStep(stepId) {
+        if (state.completedSteps.includes(stepId)) return;
+        state.completedSteps.push(stepId);
+        saveState();
+        render();
+        if (state.completedSteps.length === STEPS.length) launchConfetti();
+    }
+
+    function resetHunt() {
+        if (!confirm('Voulez-vous vraiment réinitialiser la chasse au trésor ?\nToutes les étapes seront à refaire.')) return;
+        state = { started: false, completedSteps: [] };
+        saveState();
+        render();
+        refreshMarkers();
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadState();
+        document.getElementById('start-btn').addEventListener('click', () => { state.started = true; saveState(); render(); });
+        document.getElementById('reset-btn').addEventListener('click', resetHunt);
+        initMap();
+        render();
+    });
+</script>
+</body>
+</html>
